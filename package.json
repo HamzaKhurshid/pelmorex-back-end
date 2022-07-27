@@ -1,0 +1,29 @@
+{
+  "name": "assessment",
+  "version": "1.0.0",
+  "description": "Pelmorex EF Assessment",
+  "main": "hander.spec.js",
+  "scripts": {
+    "test": "mocha *.spec.*"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "extract-zip": "^2.0.1",
+    "formidable": "^2.0.1",
+    "lodash": "^4.17.21",
+    "mime-types": "^2.1.35",
+    "path": "^0.12.7",
+    "uuid": "^8.0.0"
+  },
+  "nodemonConfig": {
+    "ext": "ts js json"
+  },
+  "type": "module",
+  "devDependencies": {
+    "chai": "^4.3.6",
+    "mocha": "^10.0.0",
+    "sinon": "^14.0.0",
+    "verror": "^1.10.1"
+  }
+}
