@@ -1,296 +1,296 @@
-import { expect } from 'chai';
+import { assert, expect } from 'chai';
 import _ from 'lodash';
 import sinon from 'sinon';
 
 import {
-    validateConversionZipFile,
-    validateGWDZipFile,
-    processGWDClickthroughUrls,
-    processConversionClickthroughUrls,
+  validateConversionZipFile,
+  validateGWDZipFile,
+  processGWDClickthroughUrls,
+  processConversionClickthroughUrls,
 } from './handler.js';
 
 describe('campaign creatives zip file upload validators', () => {
-    describe('validateGWDZipFile', () => {
-        it('calls correct dependencies for gwd zip upload', async () => {
-            const _getFiles = sinon.stub().returns(['testZipFile.html']);
-            const _readRootHtmlFile = sinon
-                .stub()
-                .returns(`<meta name="generator" content="Google Web Designer"/>`);
+  describe('validateGWDZipFile', () => {
+    it('calls correct dependencies for gwd zip upload', async () => {
+      const _getFiles = sinon.stub().returns(['testZipFile.html']);
+      const _readRootHtmlFile = sinon
+        .stub()
+        .returns(`<meta name="generator" content="Google Web Designer"/>`);
 
-            await validateGWDZipFile({
-                fileBaseName: 'testZipFile',
-                directoryToUpload: 'testUploadDirectory',
-                _getFiles,
-                _readRootHtmlFile,
-            });
+      await validateGWDZipFile({
+        fileBaseName: 'testZipFile',
+        directoryToUpload: 'testUploadDirectory',
+        _getFiles,
+        _readRootHtmlFile,
+      });
 
-            expect(_getFiles.called).to.eql(true);
-            expect(_readRootHtmlFile.called).to.eql(true);
-        });
-
-        it('should accept valid gwd zip files', async () => {
-            const _getFiles = sinon.stub().returns(['gwd-test-a.html', 'assets/test-image.png']);
-            const _readRootHtmlFile = sinon.stub().returns(`
-                <meta name="generator" content="Google Web Designer"/>
-                <image src="assets/test-image.png"/>
-            `);
-
-            const isValid = await validateGWDZipFile({
-                fileBaseName: 'gwd-test-a',
-                directoryToUpload: 'testUploadDirectory',
-                _getFiles,
-                _readRootHtmlFile,
-            });
-
-            expect(isValid).to.eql(true);
-        });
-
-        it('should accept valid gwd zip files with parens in file name', async () => {
-            const _getFiles = sinon.stub().returns(['gwd-test-a.html', 'assets/test-image.png']);
-            const _readRootHtmlFile = sinon.stub().returns(`
-                <meta name="generator" content="Google Web Designer"/>
-                <image src="assets/test-image.png"/>
-            `);
-
-            const isValid = await validateGWDZipFile({
-                fileBaseName: 'gwd-test-a (1)',
-                directoryToUpload: 'testUploadDirectory',
-                _getFiles,
-                _readRootHtmlFile,
-            });
-
-            expect(isValid).to.eql(true);
-        });
-
-        it('should reject zip file with missing root html file', async () => {
-            const _getFiles = sinon.stub().returns([]);
-            const _readRootHtmlFile = sinon
-                .stub()
-                .returns(`<meta name="generator" content="Google Web Designer"/>`);
-            let isValid;
-
-            try {
-                isValid = await validateGWDZipFile({
-                    fileBaseName: 'gwd-test-a',
-                    directoryToUpload: 'testUploadDirectory',
-                    _getFiles,
-                    _readRootHtmlFile,
-                });
-            } catch (err) {
-                expect(err.message).to.eql('Zip file does not contain a root .html file');
-            }
-
-            expect(isValid).to.eql(undefined);
-        });
-
-        it('should reject zip file where root html file is missing content', async () => {
-            const _getFiles = sinon.stub().returns(['gwd-test-a.html']);
-            const _readRootHtmlFile = sinon.stub().returns('');
-            let isValid;
-
-            try {
-                isValid = await validateGWDZipFile({
-                    fileBaseName: 'gwd-test-a',
-                    directoryToUpload: 'testUploadDirectory',
-                    _getFiles,
-                    _readRootHtmlFile,
-                });
-            } catch (err) {
-                expect(err.message).to.eql('Root .html file is missing content');
-            }
-
-            expect(isValid).to.eql(undefined);
-        });
-
-        it('should reject zip file where root html file does not contain GWD metadata', async () => {
-            const _getFiles = sinon.stub().returns(['gwd-test-a.html']);
-            const _readRootHtmlFile = sinon.stub().returns('<meta/>');
-            let isValid;
-
-            try {
-                isValid = await validateGWDZipFile({
-                    fileBaseName: 'gwd-test-a',
-                    directoryToUpload: 'testUploadDirectory',
-                    _getFiles,
-                    _readRootHtmlFile,
-                });
-            } catch (err) {
-                expect(err.message).to.eql(
-                    'Root .html file does not contain Google Web Designer metadata'
-                );
-            }
-
-            expect(isValid).to.eql(undefined);
-        });
-
-        it('should reject zip file where assets folder is missing for linked assets', async () => {
-            const _getFiles = sinon.stub().returns(['gwd-test-a.html']);
-            const _readRootHtmlFile = sinon.stub().returns(`
-                <meta name="generator" content="Google Web Designer"/>
-                <image src="assets/test-image.png"/>
-            `);
-            let isValid;
-
-            try {
-                isValid = await validateGWDZipFile({
-                    fileBaseName: 'gwd-test-a',
-                    directoryToUpload: 'testUploadDirectory',
-                    _getFiles,
-                    _readRootHtmlFile,
-                });
-            } catch (err) {
-                expect(err.message).to.eql('Zip file is missing assets folder for linked assets');
-            }
-
-            expect(isValid).to.eql(undefined);
-        });
-
-        it('should reject zip file where root html file base name is not in zip file base name', async () => {
-            const _getFiles = sinon.stub().returns(['gwd-test-b.html', 'assets/test-image.png']);
-            const _readRootHtmlFile = sinon.stub().returns(`
-                <meta name="generator" content="Google Web Designer"/>
-                <image src="assets/test-image.png"/>
-            `);
-            let isValid;
-
-            try {
-                isValid = await validateConversionZipFile({
-                    fileBaseName: 'gwd-test-a (1)',
-                    directoryToUpload: 'testUploadDirectory',
-                    _getFiles,
-                    _readRootHtmlFile,
-                });
-            } catch (err) {
-                expect(err.message).to.eql(
-                    `Zip file name 'gwd-test-a (1)' does not contain basename 'gwd-test-b'`
-                );
-            }
-
-            expect(isValid).to.eql(undefined);
-        });
+      expect(_getFiles.called).to.eql(true);
+      expect(_readRootHtmlFile.called).to.eql(true);
     });
 
-    describe('validateConversionZipFile', () => {
-        it('calls correct dependencies for conversio zip upload', async () => {
-            const _getFiles = sinon.stub().returns(['testZipFile.html']);
-            const _readRootHtmlFile = sinon
-                .stub()
-                .returns(`<meta name="generator" content="Google Web Designer"/>`);
-
-            await validateConversionZipFile({
-                fileBaseName: 'testZipFile',
-                directoryToUpload: 'testUploadDirectory',
-                _getFiles,
-                _readRootHtmlFile,
-            });
-
-            expect(_getFiles.called).to.eql(true);
-            expect(_readRootHtmlFile.called).to.eql(true);
-        });
-
-        it('should accept valid conversio zip files', async () => {
-            const _getFiles = sinon
-                .stub()
-                .returns(['conversio-test-a.html', 'images/test-image.png']);
-            const _readRootHtmlFile = sinon.stub().returns(`
-                <image src="images/test-image.png"/>
+    it('should accept valid gwd zip files', async () => {
+      const _getFiles = sinon.stub().returns(['gwd-test-a.html', 'assets/test-image.png']);
+      const _readRootHtmlFile = sinon.stub().returns(`
+                <meta name="generator" content="Google Web Designer"/>
+                <image src="assets/test-image.png"/>
             `);
 
-            const isValid = await validateConversionZipFile({
-                fileBaseName: 'conversio-test-a',
-                directoryToUpload: 'testUploadDirectory',
-                _getFiles,
-                _readRootHtmlFile,
-            });
+      const isValid = await validateGWDZipFile({
+        fileBaseName: 'gwd-test-a',
+        directoryToUpload: 'testUploadDirectory',
+        _getFiles,
+        _readRootHtmlFile,
+      });
 
-            expect(isValid).to.eql(true);
-        });
-
-        it('should accept valid conversio zip files with parens in file name', async () => {
-            const _getFiles = sinon
-                .stub()
-                .returns(['conversio-test-a.html', 'images/test-image.png']);
-            const _readRootHtmlFile = sinon.stub().returns(`
-                <image src="images/test-image.png"/>
-            `);
-
-            const isValid = await validateConversionZipFile({
-                fileBaseName: 'conversio-test-a (1)',
-                directoryToUpload: 'testUploadDirectory',
-                _getFiles,
-                _readRootHtmlFile,
-            });
-
-            expect(isValid).to.eql(true);
-        });
-
-        it('should reject zip file with missing root html file', async () => {
-            const _getFiles = sinon.stub().returns([]);
-            const _readRootHtmlFile = sinon.stub().returns(`<meta/>`);
-            let isValid;
-
-            try {
-                isValid = await validateConversionZipFile({
-                    fileBaseName: 'conversio-test-a',
-                    directoryToUpload: 'testUploadDirectory',
-                    _getFiles,
-                    _readRootHtmlFile,
-                });
-            } catch (err) {
-                expect(err.message).to.eql('Zip file does not contain a root .html file');
-            }
-
-            expect(isValid).to.eql(undefined);
-        });
-
-        it('should reject zip file where root html file is missing content', async () => {
-            const _getFiles = sinon.stub().returns(['conversio-test-a.html']);
-            const _readRootHtmlFile = sinon.stub().returns('');
-            let isValid;
-
-            try {
-                isValid = await validateConversionZipFile({
-                    fileBaseName: 'conversio-test-a',
-                    directoryToUpload: 'testUploadDirectory',
-                    _getFiles,
-                    _readRootHtmlFile,
-                });
-            } catch (err) {
-                expect(err.message).to.eql('Root .html file is missing content');
-            }
-
-            expect(isValid).to.eql(undefined);
-        });
-
-        it('should reject zip file where root html file base name is not in zip file base name', async () => {
-            const _getFiles = sinon
-                .stub()
-                .returns(['conversio-test-b.html', 'images/test-image.png']);
-            const _readRootHtmlFile = sinon.stub().returns(`
-                <image src="images/test-image.png"/>
-            `);
-            let isValid;
-
-            try {
-                isValid = await validateConversionZipFile({
-                    fileBaseName: 'conversio-test-a (1)',
-                    directoryToUpload: 'testUploadDirectory',
-                    _getFiles,
-                    _readRootHtmlFile,
-                });
-            } catch (err) {
-                expect(err.message).to.eql(
-                    `Zip file name 'conversio-test-a (1)' does not contain basename 'conversio-test-b'`
-                );
-            }
-
-            expect(isValid).to.eql(undefined);
-        });
+      expect(isValid).to.eql(true);
     });
 
-    describe('processGWDClickthroughUrls', () => {
-        it('should process all clickthrough urls with a redirect macro', () => {
-            const rawSingleUrlBody = `
+    it('should accept valid gwd zip files with parens in file name', async () => {
+      const _getFiles = sinon.stub().returns(['gwd-test-a.html', 'assets/test-image.png']);
+      const _readRootHtmlFile = sinon.stub().returns(`
+                <meta name="generator" content="Google Web Designer"/>
+                <image src="assets/test-image.png"/>
+            `);
+
+      const isValid = await validateGWDZipFile({
+        fileBaseName: 'gwd-test-a (1)',
+        directoryToUpload: 'testUploadDirectory',
+        _getFiles,
+        _readRootHtmlFile,
+      });
+
+      expect(isValid).to.eql(true);
+    });
+
+    it('should reject zip file with missing root html file', async () => {
+      const _getFiles = sinon.stub().returns([]);
+      const _readRootHtmlFile = sinon
+        .stub()
+        .returns(`<meta name="generator" content="Google Web Designer"/>`);
+      let isValid;
+
+      try {
+        isValid = await validateGWDZipFile({
+          fileBaseName: 'gwd-test-a',
+          directoryToUpload: 'testUploadDirectory',
+          _getFiles,
+          _readRootHtmlFile,
+        });
+      } catch (err) {
+        expect(err.message).to.eql('Zip file does not contain a root .html file');
+      }
+
+      expect(isValid).to.eql(undefined);
+    });
+
+    it('should reject zip file where root html file is missing content', async () => {
+      const _getFiles = sinon.stub().returns(['gwd-test-a.html']);
+      const _readRootHtmlFile = sinon.stub().returns('');
+      let isValid;
+
+      try {
+        isValid = await validateGWDZipFile({
+          fileBaseName: 'gwd-test-a',
+          directoryToUpload: 'testUploadDirectory',
+          _getFiles,
+          _readRootHtmlFile,
+        });
+      } catch (err) {
+        expect(err.message).to.eql('Root .html file is missing content');
+      }
+
+      expect(isValid).to.eql(undefined);
+    });
+
+    it('should reject zip file where root html file does not contain GWD metadata', async () => {
+      const _getFiles = sinon.stub().returns(['gwd-test-a.html']);
+      const _readRootHtmlFile = sinon.stub().returns('<meta/>');
+      let isValid;
+
+      try {
+        isValid = await validateGWDZipFile({
+          fileBaseName: 'gwd-test-a',
+          directoryToUpload: 'testUploadDirectory',
+          _getFiles,
+          _readRootHtmlFile,
+        });
+      } catch (err) {
+        expect(err.message).to.eql(
+          'Root .html file does not contain Google Web Designer metadata'
+        );
+      }
+
+      expect(isValid).to.eql(undefined);
+    });
+
+    it('should reject zip file where assets folder is missing for linked assets', async () => {
+      const _getFiles = sinon.stub().returns(['gwd-test-a.html']);
+      const _readRootHtmlFile = sinon.stub().returns(`
+                <meta name="generator" content="Google Web Designer"/>
+                <image src="assets/test-image.png"/>
+            `);
+      let isValid;
+
+      try {
+        isValid = await validateGWDZipFile({
+          fileBaseName: 'gwd-test-a',
+          directoryToUpload: 'testUploadDirectory',
+          _getFiles,
+          _readRootHtmlFile,
+        });
+      } catch (err) {
+        expect(err.message).to.eql('Zip file is missing assets folder for linked assets');
+      }
+
+      expect(isValid).to.eql(undefined);
+    });
+
+    it('should reject zip file where root html file base name is not in zip file base name', async () => {
+      const _getFiles = sinon.stub().returns(['gwd-test-b.html', 'assets/test-image.png']);
+      const _readRootHtmlFile = sinon.stub().returns(`
+                <meta name="generator" content="Google Web Designer"/>
+                <image src="assets/test-image.png"/>
+            `);
+      let isValid;
+
+      try {
+        isValid = await validateConversionZipFile({
+          fileBaseName: 'gwd-test-a (1)',
+          directoryToUpload: 'testUploadDirectory',
+          _getFiles,
+          _readRootHtmlFile,
+        });
+      } catch (err) {
+        expect(err.message).to.eql(
+          `Zip file name 'gwd-test-a (1)' does not contain basename 'gwd-test-b'`
+        );
+      }
+
+      expect(isValid).to.eql(undefined);
+    });
+  });
+
+  describe('validateConversionZipFile', () => {
+    it('calls correct dependencies for conversio zip upload', async () => {
+      const _getFiles = sinon.stub().returns(['testZipFile.html']);
+      const _readRootHtmlFile = sinon
+        .stub()
+        .returns(`<meta name="generator" content="Google Web Designer"/>`);
+
+      await validateConversionZipFile({
+        fileBaseName: 'testZipFile',
+        directoryToUpload: 'testUploadDirectory',
+        _getFiles,
+        _readRootHtmlFile,
+      });
+
+      expect(_getFiles.called).to.eql(true);
+      expect(_readRootHtmlFile.called).to.eql(true);
+    });
+
+    it('should accept valid conversio zip files', async () => {
+      const _getFiles = sinon
+        .stub()
+        .returns(['conversio-test-a.html', 'images/test-image.png']);
+      const _readRootHtmlFile = sinon.stub().returns(`
+                <image src="images/test-image.png"/>
+            `);
+
+      const isValid = await validateConversionZipFile({
+        fileBaseName: 'conversio-test-a',
+        directoryToUpload: 'testUploadDirectory',
+        _getFiles,
+        _readRootHtmlFile,
+      });
+
+      expect(isValid).to.eql(true);
+    });
+
+    it('should accept valid conversio zip files with parens in file name', async () => {
+      const _getFiles = sinon
+        .stub()
+        .returns(['conversio-test-a.html', 'images/test-image.png']);
+      const _readRootHtmlFile = sinon.stub().returns(`
+                <image src="images/test-image.png"/>
+            `);
+
+      const isValid = await validateConversionZipFile({
+        fileBaseName: 'conversio-test-a (1)',
+        directoryToUpload: 'testUploadDirectory',
+        _getFiles,
+        _readRootHtmlFile,
+      });
+
+      expect(isValid).to.eql(true);
+    });
+
+    it('should reject zip file with missing root html file', async () => {
+      const _getFiles = sinon.stub().returns([]);
+      const _readRootHtmlFile = sinon.stub().returns(`<meta/>`);
+      let isValid;
+
+      try {
+        isValid = await validateConversionZipFile({
+          fileBaseName: 'conversio-test-a',
+          directoryToUpload: 'testUploadDirectory',
+          _getFiles,
+          _readRootHtmlFile,
+        });
+      } catch (err) {
+        expect(err.message).to.eql('Zip file does not contain a root .html file');
+      }
+
+      expect(isValid).to.eql(undefined);
+    });
+
+    it('should reject zip file where root html file is missing content', async () => {
+      const _getFiles = sinon.stub().returns(['conversio-test-a.html']);
+      const _readRootHtmlFile = sinon.stub().returns('');
+      let isValid;
+
+      try {
+        isValid = await validateConversionZipFile({
+          fileBaseName: 'conversio-test-a',
+          directoryToUpload: 'testUploadDirectory',
+          _getFiles,
+          _readRootHtmlFile,
+        });
+      } catch (err) {
+        expect(err.message).to.eql('Root .html file is missing content');
+      }
+
+      expect(isValid).to.eql(undefined);
+    });
+
+    it('should reject zip file where root html file base name is not in zip file base name', async () => {
+      const _getFiles = sinon
+        .stub()
+        .returns(['conversio-test-b.html', 'images/test-image.png']);
+      const _readRootHtmlFile = sinon.stub().returns(`
+                <image src="images/test-image.png"/>
+            `);
+      let isValid;
+
+      try {
+        isValid = await validateConversionZipFile({
+          fileBaseName: 'conversio-test-a (1)',
+          directoryToUpload: 'testUploadDirectory',
+          _getFiles,
+          _readRootHtmlFile,
+        });
+      } catch (err) {
+        expect(err.message).to.eql(
+          `Zip file name 'conversio-test-a (1)' does not contain basename 'conversio-test-b'`
+        );
+      }
+
+      expect(isValid).to.eql(undefined);
+    });
+  });
+
+  describe('processGWDClickthroughUrls', () => {
+    it('should process all clickthrough urls with a redirect macro', () => {
+      const rawSingleUrlBody = `
                 <script type="text/javascript" gwd-events="handlers">
                     gwd.auto_Btn_Exit_1Action = function(event) {
                         // GWD Predefined Function
@@ -298,7 +298,7 @@ describe('campaign creatives zip file upload validators', () => {
                     };
                 </script>
             `;
-            const processedSingleUrlBody = `
+      const processedSingleUrlBody = `
                 <script type="text/javascript" gwd-events="handlers">
                     gwd.auto_Btn_Exit_1Action = function(event) {
                         // GWD Predefined Function
@@ -306,7 +306,7 @@ describe('campaign creatives zip file upload validators', () => {
                     };
                 </script>
             `;
-            const rawMultiUrlBody = `
+      const rawMultiUrlBody = `
                 <script type="text/javascript" gwd-events="handlers">
                     gwd.auto_Btn_Exit_1Action = function(event) {
                         gwd.actions.gwdGoogleAd.exit('gwd-ad', 'Btn-Exit', 'https://www.google.com/', true, true);
@@ -325,7 +325,7 @@ describe('campaign creatives zip file upload validators', () => {
                     };
                 </script>
             `;
-            const processedMultiUrlBody = `
+      const processedMultiUrlBody = `
                 <script type="text/javascript" gwd-events="handlers">
                     gwd.auto_Btn_Exit_1Action = function(event) {
                         gwd.actions.gwdGoogleAd.exit('gwd-ad', 'Btn-Exit', decodeURIComponent(window.location.href.split('?adserver=')[1]) + 'https://www.google.com/', true, true);
@@ -345,99 +345,99 @@ describe('campaign creatives zip file upload validators', () => {
                 </script>
             `;
 
-            expect(processGWDClickthroughUrls(rawSingleUrlBody)).to.eql(processedSingleUrlBody);
-            expect(processGWDClickthroughUrls(rawMultiUrlBody)).to.eql(processedMultiUrlBody);
-        });
+      expect(processGWDClickthroughUrls(rawSingleUrlBody)).to.eql(processedSingleUrlBody);
+      expect(processGWDClickthroughUrls(rawMultiUrlBody)).to.eql(processedMultiUrlBody);
     });
+  });
 
-    describe('processConversionClickthroughUrls', () => {
-        it('should process all clickthrough urls with a redirect macro', () => {
-            const expectedOutputWithVar = `
+  describe('processConversionClickthroughUrls', () => {
+    it('should process all clickthrough urls with a redirect macro', () => {
+      const expectedOutputWithVar = `
                 <script>
                     var clickTag = decodeURIComponent(window.location.href.split('?adserver=')[1]) + "http://plancherspayless.com/fr/"
                 </script>
             `;
-            const expectedOutputWithLet = `
+      const expectedOutputWithLet = `
                 <script>
                     let clickTag = decodeURIComponent(window.location.href.split('?adserver=')[1]) + "http://plancherspayless.com/fr/"
                 </script>
             `;
-            const expectedOutputWithConst = `
+      const expectedOutputWithConst = `
                 <script>
                     const clickTag = decodeURIComponent(window.location.href.split('?adserver=')[1]) + "http://plancherspayless.com/fr/"
                 </script>
             `;
-            const expectedOutputWithCase = `
+      const expectedOutputWithCase = `
                 <script>
                     var ClickTAG = decodeURIComponent(window.location.href.split('?adserver=')[1]) + "http://plancherspayless.com/fr/"
                 </script>
             `;
-            const expectedOutputWithSpace = `
+      const expectedOutputWithSpace = `
                 <script>
                     var clickTag  =  decodeURIComponent(window.location.href.split('?adserver=')[1]) + "http://plancherspayless.com/fr/"
                 </script>
             `;
-            const expectedOutputWithNoSpace = `
+      const expectedOutputWithNoSpace = `
                 <script>
                     var clickTag=decodeURIComponent(window.location.href.split('?adserver=')[1]) + "http://plancherspayless.com/fr/"
                 </script>
             `;
 
-            expect(
-                processConversionClickthroughUrls(`
+      expect(
+        processConversionClickthroughUrls(`
                 <script>
                     var clickTag = "http://plancherspayless.com/fr/"
                 </script>
             `)
-            ).to.eql(expectedOutputWithVar);
+      ).to.eql(expectedOutputWithVar);
 
-            expect(
-                processConversionClickthroughUrls(`
+      expect(
+        processConversionClickthroughUrls(`
                 <script>
                     var clickTag = 'http://plancherspayless.com/fr/'
                 </script>
             `)
-            ).to.eql(expectedOutputWithVar);
+      ).to.eql(expectedOutputWithVar);
 
-            expect(
-                processConversionClickthroughUrls(`
+      expect(
+        processConversionClickthroughUrls(`
                 <script>
                     let clickTag = "http://plancherspayless.com/fr/"
                 </script>
             `)
-            ).to.eql(expectedOutputWithLet);
+      ).to.eql(expectedOutputWithLet);
 
-            expect(
-                processConversionClickthroughUrls(`
+      expect(
+        processConversionClickthroughUrls(`
                 <script>
                     const clickTag = "http://plancherspayless.com/fr/"
                 </script>
             `)
-            ).to.eql(expectedOutputWithConst);
+      ).to.eql(expectedOutputWithConst);
 
-            expect(
-                processConversionClickthroughUrls(`
+      expect(
+        processConversionClickthroughUrls(`
                 <script>
                     var ClickTAG = "http://plancherspayless.com/fr/"
                 </script>
             `)
-            ).to.eql(expectedOutputWithCase);
+      ).to.eql(expectedOutputWithCase);
 
-            expect(
-                processConversionClickthroughUrls(`
+      expect(
+        processConversionClickthroughUrls(`
                 <script>
                     var clickTag  =  "http://plancherspayless.com/fr/"
                 </script>
             `)
-            ).to.eql(expectedOutputWithSpace);
+      ).to.eql(expectedOutputWithSpace);
 
-            expect(
-                processConversionClickthroughUrls(`
+      expect(
+        processConversionClickthroughUrls(`
                 <script>
                     var clickTag="http://plancherspayless.com/fr/"
                 </script>
             `)
-            ).to.eql(expectedOutputWithNoSpace);
-        });
+      ).to.eql(expectedOutputWithNoSpace);
     });
+  });
 });
