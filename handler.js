@@ -6,26 +6,29 @@ import VError from 'verror';
 import mime from 'mime-types';
 import { v1 as uuid } from 'uuid';
 
+import {
+	S3_SECRET,
+	S3_KEY,
+	S3_CREATIVES_BUCKET,
+	S3_ACCESS_CONTROL_LIST,
+	ONE_HUNDRED_MEGABYTES,
+	GCS_CREATIVE_BUCKET_NAME
+} from './constants';
+
 const TEMP_DIRECTORY = '../../../../../tmp/';
 const UPLOAD_DIRECTORY = '../../../../../tmp/rich-media-markup-uploads';
 const EXTRACT_DIRECTORY = '../../../../../tmp/rich-media-markup-extracted';
-const ONE_HUNDRED_MEGABYTES = 100 * 1024 * 1024;
 
-const S3_KEY = 's3.key';
-const S3_SECRET = 's3.secret';
-const S3_CREATIVES_BUCKET = 's3.creatives.bucket';
-const S3_ACCESS_CONTROL_LIST = 'public-read';
 const __dirname = '';
 const s3 = new AWS.S3({
 	accessKeyId: S3_KEY,
 	secretAccessKey: S3_SECRET,
 });
 const storage = new Storage();
-const GCS_CREATIVE_BUCKET_NAME = 'gcs.creatives.bucketName';
 
 async function handler(req, res, next) {
-	const { flags } = res.locals;
-	const { id: campaignId } = res.locals.campaign;
+	const { flags, campaign } = res.locals;
+	const { id: campaignId } = campaign;
 
 	persistTempFolders();
 
@@ -97,9 +100,9 @@ async function handler(req, res, next) {
 			removeTempFolders();
 		}
 
-		const rootHtmlFile = _.find(s3UploadResults, ({ Key }) => {
-			return _.includes(Key, '.html');
-		}).Key;
+		const rootHtmlFile = _.find(s3UploadResults, ({ s3UploadKey }) => {
+			return _.includes(s3UploadKey, '.html');
+		}).s3UploadKey;
 		const rootHtmlFileBaseName = _.last(rootHtmlFile.split('/')).split('.html')[0];
 
 		const { cdnUrl, markup } = getGeneratedMarkup({
@@ -160,9 +163,8 @@ const extractFiles = async filesInfo => {
 				extract(filePath, { dir: `${destinationDirectory}` }, error => {
 					if (error) {
 						reject(error);
-					} else {
-						resolve();
 					}
+					resolve();
 				});
 			});
 		} catch (error) {
@@ -176,8 +178,8 @@ const validateFile = async ({ fileBaseName, directoryToUpload, exporter }) => {
 		case 'gwd':
 			await validateGWDZipFile({ fileBaseName, directoryToUpload });
 			break;
-		case 'conversio':
-			await validateConversioZipFile({ fileBaseName, directoryToUpload });
+		case 'conversion':
+			await validateConversionZipFile({ fileBaseName, directoryToUpload });
 			break;
 		default:
 			await validateGWDZipFile({ fileBaseName, directoryToUpload });
@@ -185,7 +187,6 @@ const validateFile = async ({ fileBaseName, directoryToUpload, exporter }) => {
 };
 
 export const validateGWDZipFile = async ({
-	// fileBaseName,
 	directoryToUpload,
 	_getFiles = getFiles,
 	_readRootHtmlFile = readRootHtmlFile,
@@ -197,19 +198,6 @@ export const validateGWDZipFile = async ({
 	if (!rootHtmlFile) {
 		throw new VError('Zip file does not contain a root .html file');
 	}
-
-	/*
-	const rootHtmlFileBaseName = _(rootHtmlFile)
-			.replace(`${EXTRACT_DIRECTORY}/${fileBaseName}/`, '')
-			.split('.html')[0]
-			.split('/')[0];
-
-	if (!_.includes(fileBaseName, rootHtmlFileBaseName)) {
-			throw new VError(
-					`Zip file name '${fileBaseName}' does not contain basename '${rootHtmlFileBaseName}'`
-			);
-	}
-	*/
 
 	const rootHtmlString = _readRootHtmlFile(rootHtmlFile);
 
@@ -236,7 +224,7 @@ export const validateGWDZipFile = async ({
 	return true;
 };
 
-export const validateConversioZipFile = async ({
+export const validateConversionZipFile = async ({
 	fileBaseName,
 	directoryToUpload,
 	_getFiles = getFiles,
@@ -302,7 +290,7 @@ const uploadDirectoryToS3 = async ({
 	const uploadResults = [];
 
 	for (const filePath of filesToUpload) {
-		const Key = getS3UploadKey({
+		const s3UploadKey = getS3UploadKey({
 			filePath,
 			directoryToUpload,
 			campaignId,
@@ -310,23 +298,23 @@ const uploadDirectoryToS3 = async ({
 			uploadId,
 		});
 
-		let Body;
+		let body;
 
 		if (_.includes(filePath, '.html')) {
-			Body = fs.readFileSync(filePath, 'utf8');
+			body = fs.readFileSync(filePath, 'utf8');
 
 			switch (exporter) {
 				case 'gwd':
-					Body = processGWDClickthroughUrls(Body);
+					body = processGWDClickthroughUrls(body);
 					break;
 				case 'conversio':
-					Body = processConversioClickthroughUrls(Body);
+					body = processConversionClickthroughUrls(body);
 					break;
 				default:
-					Body = processGWDClickthroughUrls(Body);
+					body = processGWDClickthroughUrls(body);
 			}
 		} else {
-			Body = fs.readFileSync(filePath);
+			body = fs.readFileSync(filePath);
 		}
 
 		const Bucket = S3_CREATIVES_BUCKET;
@@ -334,8 +322,8 @@ const uploadDirectoryToS3 = async ({
 		const ContentType = mime.lookup(filePath) || 'application/octet-stream';
 
 		const params = {
-			Key,
-			Body,
+			s3UploadKey,
+			body,
 			Bucket,
 			ACL,
 			ContentType,
@@ -345,13 +333,13 @@ const uploadDirectoryToS3 = async ({
 			if (flags.en_2127_upload_into_s3_and_gcs) {
 				if (configs.get('creatives.uploadToGCS')) {
 					await storage.bucket(GCS_CREATIVE_BUCKET_NAME).upload(filePath, {
-						destination: Key,
+						destination: s3UploadKey,
 					});
 				}
 			}
 			await uploadObjectToS3(params);
 			uploadResults.push({
-				Key,
+				s3UploadKey,
 			});
 		} catch (error) {
 			throw new VError(error, `failed to upload ${filePath} to s3`);
@@ -416,7 +404,7 @@ export const processGWDClickthroughUrls = body => {
 	return output;
 };
 
-export const processConversioClickthroughUrls = body => {
+export const processConversionClickthroughUrls = body => {
 	let output = body;
 
 	const clickTagRegex = /clickTag\s*=\s*["'](\S*)["']/gi;
