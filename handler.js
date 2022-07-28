@@ -13,7 +13,7 @@ import {
 	S3_ACCESS_CONTROL_LIST,
 	ONE_HUNDRED_MEGABYTES,
 	GCS_CREATIVE_BUCKET_NAME
-} from './constants';
+} from './constants/index.js';
 
 const TEMP_DIRECTORY = '../../../../../tmp/';
 const UPLOAD_DIRECTORY = '../../../../../tmp/rich-media-markup-uploads';
