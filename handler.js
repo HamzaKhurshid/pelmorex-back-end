@@ -176,60 +176,24 @@ const extractFiles = async filesInfo => {
 const validateFile = async ({ fileBaseName, directoryToUpload, exporter }) => {
 	switch (exporter) {
 		case 'gwd':
-			await validateGWDZipFile({ fileBaseName, directoryToUpload });
+			await validateZipFile({ fileBaseName, directoryToUpload, type: exporter });
 			break;
 		case 'conversion':
-			await validateConversionZipFile({ fileBaseName, directoryToUpload });
+			await validateZipFile({ fileBaseName, directoryToUpload, type: exporter });
 			break;
 		default:
-			await validateGWDZipFile({ fileBaseName, directoryToUpload });
+			await validateZipFile({ fileBaseName, directoryToUpload, type: 'gwd' });
 	}
 };
 
-export const validateGWDZipFile = async ({
-	directoryToUpload,
-	_getFiles = getFiles,
-	_readRootHtmlFile = readRootHtmlFile,
-} = {}) => {
-	const files = await _getFiles(path.resolve(__dirname, directoryToUpload));
-
-	const rootHtmlFile = _.find(files, file => _.includes(file, '.html'));
-
-	if (!rootHtmlFile) {
-		throw new VError('Zip file does not contain a root .html file');
-	}
-
-	const rootHtmlString = _readRootHtmlFile(rootHtmlFile);
-
-	if (rootHtmlString.length < 1) {
-		throw new VError('Root .html file is missing content');
-	}
-
-	const containsGWDMeta = _.includes(
-		rootHtmlString,
-		'name="generator" content="Google Web Designer'
-	);
-
-	if (!containsGWDMeta) {
-		throw new VError('Root .html file does not contain Google Web Designer metadata');
-	}
-
-	const hasAssets = _.filter(files, file => _.includes(file, 'assets/')).length > 0;
-	const linksAssets = _.includes(rootHtmlString, 'src="assets/');
-
-	if (linksAssets && !hasAssets) {
-		throw new VError('Zip file is missing assets folder for linked assets');
-	}
-
-	return true;
-};
-
-export const validateConversionZipFile = async ({
+export const validateZipFile = async ({
+	type = 'gwd',
 	fileBaseName,
 	directoryToUpload,
 	_getFiles = getFiles,
 	_readRootHtmlFile = readRootHtmlFile,
 } = {}) => {
+	let rootHtmlString;
 	const files = await _getFiles(path.resolve(__dirname, directoryToUpload));
 
 	const rootHtmlFile = _.find(files, file => _.includes(file, '.html'));
@@ -238,21 +202,44 @@ export const validateConversionZipFile = async ({
 		throw new VError('Zip file does not contain a root .html file');
 	}
 
-	const rootHtmlFileBaseName = _(rootHtmlFile)
-		.replace(`${EXTRACT_DIRECTORY}/${fileBaseName}/`, '')
-		.split('.html')[0]
-		.split('/')[0];
+	if (type === 'gwd') {
+		rootHtmlString = _readRootHtmlFile(rootHtmlFile);
+		if (rootHtmlString.length < 1) {
+			throw new VError('Root .html file is missing content');
+		}
 
-	if (!_.includes(fileBaseName, rootHtmlFileBaseName)) {
-		throw new VError(
-			`Zip file name '${fileBaseName}' does not contain basename '${rootHtmlFileBaseName}'`
+		const containsGWDMeta = _.includes(
+			rootHtmlString,
+			'name="generator" content="Google Web Designer'
 		);
-	}
 
-	const rootHtmlString = _readRootHtmlFile(rootHtmlFile);
+		if (!containsGWDMeta) {
+			throw new VError('Root .html file does not contain Google Web Designer metadata');
+		}
 
-	if (rootHtmlString.length < 1) {
-		throw new VError('Root .html file is missing content');
+		const hasAssets = _.filter(files, file => _.includes(file, 'assets/')).length > 0;
+		const linksAssets = _.includes(rootHtmlString, 'src="assets/');
+
+		if (linksAssets && !hasAssets) {
+			throw new VError('Zip file is missing assets folder for linked assets');
+		}
+	} else {
+		const rootHtmlFileBaseName = _(rootHtmlFile)
+			.replace(`${EXTRACT_DIRECTORY}/${fileBaseName}/`, '')
+			.split('.html')[0]
+			.split('/')[0];
+
+		if (!_.includes(fileBaseName, rootHtmlFileBaseName)) {
+			throw new VError(
+				`Zip file name '${fileBaseName}' does not contain basename '${rootHtmlFileBaseName}'`
+			);
+		}
+
+		const rootHtmlString = _readRootHtmlFile(rootHtmlFile);
+
+		if (rootHtmlString.length < 1) {
+			throw new VError('Root .html file is missing content');
+		}
 	}
 
 	return true;
@@ -305,13 +292,13 @@ const uploadDirectoryToS3 = async ({
 
 			switch (exporter) {
 				case 'gwd':
-					body = processGWDClickthroughUrls(body);
+					body = processClickthroughUrls(body, 'gwd');
 					break;
 				case 'conversio':
-					body = processConversionClickthroughUrls(body);
+					body = processClickthroughUrls(body, 'conversion');
 					break;
 				default:
-					body = processGWDClickthroughUrls(body);
+					body = processClickthroughUrls(body, 'gwd');
 			}
 		} else {
 			body = fs.readFileSync(filePath);
@@ -381,41 +368,30 @@ const removeTempFolders = () => {
 	deleteFolderRecursively(EXTRACT_DIRECTORY);
 };
 
-export const processGWDClickthroughUrls = body => {
+export const processClickthroughUrls = (body, type) => {
 	let output = body;
+	let trimmedUrl;
 
-	const exitEventRegex = /.exit\([^\)]+\)/gm;
-	const urlRegex = /(["']https?:\/\/[^\s]+["'],)/g;
+	const isTypeConversion = type === 'conversion' || false;
 
-	_.each(body.match(exitEventRegex), params => {
+	const regex = isTypeConversion ? /clickTag\s*=\s*["'](\S*)["']/gi : /.exit\([^\)]+\)/gm;
+	const urlRegex = isTypeConversion ? /(["']https?:\/\/[^\s]+["'])/g : /(["']https?:\/\/[^\s]+["'],)/g;
+
+	_.each(body.match(regex), params => {
 		const formattedParams = params.replace(urlRegex, url => {
-			const trimmedUrl = _.chain(url)
-				.trimStart(`'`)
-				.trimEnd(`',`)
-				.trimStart(`"`)
-				.trimEnd(`",`)
-				.value();
-			return `decodeURIComponent(window.location.href.split('?adserver=')[1]) + '${trimmedUrl}',`;
-		});
-
-		output = output.replace(params, formattedParams);
-	});
-
-	return output;
-};
-
-export const processConversionClickthroughUrls = body => {
-	let output = body;
-
-	const clickTagRegex = /clickTag\s*=\s*["'](\S*)["']/gi;
-	const urlRegex = /(["']https?:\/\/[^\s]+["'])/g;
-
-	_.each(body.match(clickTagRegex), params => {
-		const formattedParams = params.replace(urlRegex, url => {
-			const trimmedUrl = _.chain(url)
-				.trim(`'`)
-				.trim(`"`)
-				.value();
+			if (isTypeConversion) {
+				trimmedUrl = _.chain(url)
+					.trim(`'`)
+					.trim(`"`)
+					.value();
+			} else {
+				trimmedUrl = _.chain(url)
+					.trimStart(`'`)
+					.trimEnd(`',`)
+					.trimStart(`"`)
+					.trimEnd(`",`)
+					.value();
+			}
 			return `decodeURIComponent(window.location.href.split('?adserver=')[1]) + "${trimmedUrl}"`;
 		});
 
