@@ -9,19 +9,22 @@ import { v1 as uuid } from 'uuid';
 const TEMP_DIRECTORY = '../../../../../tmp/';
 const UPLOAD_DIRECTORY = '../../../../../tmp/rich-media-markup-uploads';
 const EXTRACT_DIRECTORY = '../../../../../tmp/rich-media-markup-extracted';
-const ONE_HUNDRED_MEGABYTES = 100 * 1024 * 1024;
 
-const S3_KEY = 's3.key';
-const S3_SECRET = 's3.secret';
-const S3_CREATIVES_BUCKET = 's3.creatives.bucket';
-const S3_ACCESS_CONTROL_LIST = 'public-read';
+import {
+  S3_KEY,
+  S3_SECRET,
+  S3_CREATIVES_BUCKET,
+  S3_ACCESS_CONTROL_LIST,
+  ONE_HUNDRED_MEGABYTES,
+  GCS_CREATIVE_BUCKET_NAME
+} from './constants/index.js';
+
 const __dirname = '';
 const s3 = new AWS.S3({
   accessKeyId: S3_KEY,
   secretAccessKey: S3_SECRET,
 });
 const storage = new Storage();
-const GCS_CREATIVE_BUCKET_NAME = 'gcs.creatives.bucketName';
 
 async function handler(req, res, next) {
   const { flags } = res.locals;
@@ -174,42 +177,40 @@ const extractFiles = async filesInfo => {
 const validateFile = async ({ fileBaseName, directoryToUpload, exporter }) => {
   switch (exporter) {
     case 'gwd':
-      await validateGWDZipFile({ fileBaseName, directoryToUpload });
+      await validateZipFile({ fileBaseName, directoryToUpload, type: exporter });
       break;
-    case 'conversio':
-      await validateConversioZipFile({ fileBaseName, directoryToUpload });
+    case 'conversion':
+      await validateZipFile({ fileBaseName, directoryToUpload, type: exporter });
       break;
     default:
-      await validateGWDZipFile({ fileBaseName, directoryToUpload });
+      await validateZipFile({ fileBaseName, directoryToUpload, type: exporter });
   }
 };
 
-export const validateGWDZipFile = async ({
-  // fileBaseName,
+export const validateZipFile = async ({
+  type = 'gwd',
+  fileBaseName,
   directoryToUpload,
   _getFiles = getFiles,
-  _readRootHtmlFile = readRootHtmlFile,
+  _readRootHtmlFile = readRootHtmlFile
 } = {}) => {
   const files = await _getFiles(path.resolve(__dirname, directoryToUpload));
-
   const rootHtmlFile = _.find(files, file => _.includes(file, '.html'));
 
   if (!rootHtmlFile) {
     throw new VError('Zip file does not contain a root .html file');
   }
 
-  /*
-  const rootHtmlFileBaseName = _(rootHtmlFile)
+  if (type === 'conversion') {
+    const rootHtmlFileBaseName = _(rootHtmlFile)
       .replace(`${EXTRACT_DIRECTORY}/${fileBaseName}/`, '')
       .split('.html')[0]
       .split('/')[0];
 
-  if (!_.includes(fileBaseName, rootHtmlFileBaseName)) {
-      throw new VError(
-          `Zip file name '${fileBaseName}' does not contain basename '${rootHtmlFileBaseName}'`
-      );
+    if (!_.includes(fileBaseName, rootHtmlFileBaseName)) {
+      throw new VError(`Zip file name '${fileBaseName}' does not contain basename '${rootHtmlFileBaseName}'`);
+    }
   }
-  */
 
   const rootHtmlString = _readRootHtmlFile(rootHtmlFile);
 
@@ -217,54 +218,22 @@ export const validateGWDZipFile = async ({
     throw new VError('Root .html file is missing content');
   }
 
-  const containsGWDMeta = _.includes(
-    rootHtmlString,
-    'name="generator" content="Google Web Designer'
-  );
-
-  if (!containsGWDMeta) {
-    throw new VError('Root .html file does not contain Google Web Designer metadata');
-  }
-
-  const hasAssets = _.filter(files, file => _.includes(file, 'assets/')).length > 0;
-  const linksAssets = _.includes(rootHtmlString, 'src="assets/');
-
-  if (linksAssets && !hasAssets) {
-    throw new VError('Zip file is missing assets folder for linked assets');
-  }
-
-  return true;
-};
-
-export const validateConversioZipFile = async ({
-  fileBaseName,
-  directoryToUpload,
-  _getFiles = getFiles,
-  _readRootHtmlFile = readRootHtmlFile,
-} = {}) => {
-  const files = await _getFiles(path.resolve(__dirname, directoryToUpload));
-
-  const rootHtmlFile = _.find(files, file => _.includes(file, '.html'));
-
-  if (!rootHtmlFile) {
-    throw new VError('Zip file does not contain a root .html file');
-  }
-
-  const rootHtmlFileBaseName = _(rootHtmlFile)
-    .replace(`${EXTRACT_DIRECTORY}/${fileBaseName}/`, '')
-    .split('.html')[0]
-    .split('/')[0];
-
-  if (!_.includes(fileBaseName, rootHtmlFileBaseName)) {
-    throw new VError(
-      `Zip file name '${fileBaseName}' does not contain basename '${rootHtmlFileBaseName}'`
+  if (type === 'gwd') {
+    const containsGWDMeta = _.includes(
+      rootHtmlString,
+      'name="generator" content="Google Web Designer'
     );
-  }
 
-  const rootHtmlString = _readRootHtmlFile(rootHtmlFile);
+    if (!containsGWDMeta) {
+      throw new VError('Root .html file does not contain Google Web Designer metadata');
+    }
 
-  if (rootHtmlString.length < 1) {
-    throw new VError('Root .html file is missing content');
+    const hasAssets = _.filter(files, file => _.includes(file, 'assets/')).length > 0;
+    const linksAssets = _.includes(rootHtmlString, 'src="assets/');
+
+    if (linksAssets && !hasAssets) {
+      throw new VError('Zip file is missing assets folder for linked assets')
+    }
   }
 
   return true;
@@ -319,7 +288,7 @@ const uploadDirectoryToS3 = async ({
         case 'gwd':
           Body = processGWDClickthroughUrls(Body);
           break;
-        case 'conversio':
+        case 'conversion':
           Body = processConversioClickthroughUrls(Body);
           break;
         default:

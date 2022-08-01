@@ -3,21 +3,21 @@ import _ from 'lodash';
 import sinon from 'sinon';
 
 import {
-  validateConversioZipFile,
-  validateGWDZipFile,
+  validateZipFile,
   processGWDClickthroughUrls,
   processConversioClickthroughUrls,
 } from './handler.js';
 
 describe('campaign creatives zip file upload validators', () => {
-  describe('validateGWDZipFile', () => {
+  describe('validateZipFile for GWD', () => {
     it('calls correct dependencies for gwd zip upload', async () => {
       const _getFiles = sinon.stub().returns(['testZipFile.html']);
       const _readRootHtmlFile = sinon
         .stub()
         .returns(`<meta name="generator" content="Google Web Designer"/>`);
 
-      await validateGWDZipFile({
+      await validateZipFile({
+        type: 'gwd',
         fileBaseName: 'testZipFile',
         directoryToUpload: 'testUploadDirectory',
         _getFiles,
@@ -35,7 +35,8 @@ describe('campaign creatives zip file upload validators', () => {
                 <image src="assets/test-image.png"/>
             `);
 
-      const isValid = await validateGWDZipFile({
+      const isValid = await validateZipFile({
+        type: 'gwd',
         fileBaseName: 'gwd-test-a',
         directoryToUpload: 'testUploadDirectory',
         _getFiles,
@@ -52,7 +53,8 @@ describe('campaign creatives zip file upload validators', () => {
                 <image src="assets/test-image.png"/>
             `);
 
-      const isValid = await validateGWDZipFile({
+      const isValid = await validateZipFile({
+        type: 'gwd',
         fileBaseName: 'gwd-test-a (1)',
         directoryToUpload: 'testUploadDirectory',
         _getFiles,
@@ -70,7 +72,8 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateGWDZipFile({
+        isValid = await validateZipFile({
+          type: 'gwd',
           fileBaseName: 'gwd-test-a',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -89,7 +92,8 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateGWDZipFile({
+        isValid = await validateZipFile({
+          type: 'gwd',
           fileBaseName: 'gwd-test-a',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -108,7 +112,8 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateGWDZipFile({
+        isValid = await validateZipFile({
+          type: 'gwd',
           fileBaseName: 'gwd-test-a',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -132,7 +137,8 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateGWDZipFile({
+        isValid = await validateZipFile({
+          type: 'gwd',
           fileBaseName: 'gwd-test-a',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -154,7 +160,8 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateConversioZipFile({
+        isValid = await validateZipFile({
+          type: 'conversion',
           fileBaseName: 'gwd-test-a (1)',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -170,14 +177,15 @@ describe('campaign creatives zip file upload validators', () => {
     });
   });
 
-  describe('validateConversioZipFile', () => {
-    it('calls correct dependencies for conversio zip upload', async () => {
+  describe('validateZipFile for coversion', () => {
+    it('calls correct dependencies for conversion zip upload', async () => {
       const _getFiles = sinon.stub().returns(['testZipFile.html']);
       const _readRootHtmlFile = sinon
         .stub()
         .returns(`<meta name="generator" content="Google Web Designer"/>`);
 
-      await validateConversioZipFile({
+      await validateZipFile({
+        type: 'conversion',
         fileBaseName: 'testZipFile',
         directoryToUpload: 'testUploadDirectory',
         _getFiles,
@@ -188,7 +196,7 @@ describe('campaign creatives zip file upload validators', () => {
       expect(_readRootHtmlFile.called).to.eql(true);
     });
 
-    it('should accept valid conversio zip files', async () => {
+    it('should accept valid conversion zip files', async () => {
       const _getFiles = sinon
         .stub()
         .returns(['conversio-test-a.html', 'images/test-image.png']);
@@ -196,7 +204,8 @@ describe('campaign creatives zip file upload validators', () => {
                 <image src="images/test-image.png"/>
             `);
 
-      const isValid = await validateConversioZipFile({
+      const isValid = await validateZipFile({
+        type: 'conversion',
         fileBaseName: 'conversio-test-a',
         directoryToUpload: 'testUploadDirectory',
         _getFiles,
@@ -214,7 +223,8 @@ describe('campaign creatives zip file upload validators', () => {
                 <image src="images/test-image.png"/>
             `);
 
-      const isValid = await validateConversioZipFile({
+      const isValid = await validateZipFile({
+        type: 'conversion',
         fileBaseName: 'conversio-test-a (1)',
         directoryToUpload: 'testUploadDirectory',
         _getFiles,
@@ -230,7 +240,8 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateConversioZipFile({
+        isValid = await validateZipFile({
+          type: 'conversion',
           fileBaseName: 'conversio-test-a',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -249,7 +260,8 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateConversioZipFile({
+        isValid = await validateZipFile({
+          type: 'conversion',
           fileBaseName: 'conversio-test-a',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -272,7 +284,8 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateConversioZipFile({
+        isValid = await validateZipFile({
+          type: 'conversion',
           fileBaseName: 'conversio-test-a (1)',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
