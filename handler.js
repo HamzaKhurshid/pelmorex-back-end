@@ -209,21 +209,26 @@ export const validateZipFile = async ({
     throw new VError('Root .html file is missing content');
   }
 
-  if (type === 'gwd') {
-    const containsGWDMeta = _.includes(
+  if (type !== 'conversion') {
+    const isTypeGwd = type === 'gwd' || false;
+    const metaTagIdentifier = isTypeGwd ? 'name="generator" content="Google Web Designer' : 'name="ad.size" content="width=[x],height=[y]';
+
+    const containsMeta = _.includes(
       rootHtmlString,
-      'name="generator" content="Google Web Designer'
+      metaTagIdentifier
     );
 
-    if (!containsGWDMeta) {
-      throw new VError('Root .html file does not contain Google Web Designer metadata');
+    if (!containsMeta) {
+      throw new VError(`Root .html file does not contain ${isTypeGwd ? 'Google Web Designer metadata' : 'Ad size meta tag'}`);
     }
 
-    const hasAssets = _.filter(files, file => _.includes(file, 'assets/')).length > 0;
-    const linksAssets = _.includes(rootHtmlString, 'src="assets/');
+    if (isTypeGwd) {
+      const hasAssets = _.filter(files, file => _.includes(file, 'assets/')).length > 0;
+      const linksAssets = _.includes(rootHtmlString, 'src="assets/');
 
-    if (linksAssets && !hasAssets) {
-      throw new VError('Zip file is missing assets folder for linked assets')
+      if (linksAssets && !hasAssets) {
+        throw new VError('Zip file is missing assets folder for linked assets')
+      }
     }
   }
 
@@ -346,8 +351,10 @@ const removeTempFolders = () => {
 export const processClickthroughUrls = ({ body, type = 'gwd' }) => {
   let output = body;
   const isGwd = type === 'gwd' || false;
-  
-  const regex = isGwd ? /.exit\([^\)]+\)/gm : /clickTag\s*=\s*["'](\S*)["']/gi;
+  const isConversion = type === 'conversion' || false;
+  const adRedirectUrl = 'https://www.google.com';
+
+  const regex = isGwd ? (/.exit\([^\)]+\)/gm) : (/clickTag\s*=\s*["'](\S*)["']/gi);
   const urlRegex = isGwd ? /(["']https?:\/\/[^\s]+["'],)/g : /(["']https?:\/\/[^\s]+["'])/g;
 
   _.each(body.match(regex), params => {
@@ -370,7 +377,7 @@ export const processClickthroughUrls = ({ body, type = 'gwd' }) => {
       if (isGwd) {
         return decodeUri + `'${trimmedUrl}',`;
       }
-      return decodeUri + `"${trimmedUrl}"`; 
+      return decodeUri + `"${isConversion ? trimmedUrl : adRedirectUrl}"`; 
     });
     output = output.replace(params, formattedParams);
   });

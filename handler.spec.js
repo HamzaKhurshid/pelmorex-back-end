@@ -300,6 +300,48 @@ describe('campaign creatives zip file upload validators', () => {
     });
   });
 
+  describe('validateZipFile using new processor validation rules', () => {
+    it('should reject zip file with missing root html file', async () => {
+      const _getFiles = sinon.stub().returns([]);
+      const _readRootHtmlFile = sinon.stub().returns(`<meta/>`);
+      let isValid;
+
+      try {
+        isValid = await validateZipFile({
+          type: 'newProcessor',
+          fileBaseName: 'new-processor-test-a',
+          directoryToUpload: 'testUploadDirectory',
+          _getFiles,
+          _readRootHtmlFile,
+        });
+      } catch (err) {
+        expect(err.message).to.eql('Zip file does not contain a root .html file');
+      }
+
+      expect(isValid).to.eql(undefined);
+    });
+
+    it('should reject zip file where root html file is missing content', async () => {
+      const _getFiles = sinon.stub().returns(['new-processor-test-a.html']);
+      const _readRootHtmlFile = sinon.stub().returns('');
+      let isValid;
+
+      try {
+        isValid = await validateZipFile({
+          type: 'newProcessor',
+          fileBaseName: 'new-processor-test-a',
+          directoryToUpload: 'testUploadDirectory',
+          _getFiles,
+          _readRootHtmlFile,
+        });
+      } catch (err) {
+        expect(err.message).to.eql('Root .html file is missing content');
+      }
+
+      expect(isValid).to.eql(undefined);
+    });
+  });
+
   describe('processClickthroughUrls for GWD', () => {
     it('should process all clickthrough urls with a redirect macro', () => {
       const rawSingleUrlBody = `
@@ -469,6 +511,118 @@ describe('campaign creatives zip file upload validators', () => {
                 </script>
             `,
           type: 'conversion'
+        })
+      ).to.eql(expectedOutputWithNoSpace);
+    });
+  });
+
+  describe('processClickthroughUrls for new Processor', () => {
+    it('should process all clickthrough urls with a redirect macro', () => {
+      const expectedOutputWithVar = `
+                <script>
+                    var clickTag = decodeURIComponent(window.location.href.split('?adserver=')[1]) + "https://www.google.com"
+                </script>
+            `;
+      const expectedOutputWithLet = `
+                <script>
+                    let clickTag = decodeURIComponent(window.location.href.split('?adserver=')[1]) + "https://www.google.com"
+                </script>
+            `;
+      const expectedOutputWithConst = `
+                <script>
+                    const clickTag = decodeURIComponent(window.location.href.split('?adserver=')[1]) + "https://www.google.com"
+                </script>
+            `;
+      const expectedOutputWithCase = `
+                <script>
+                    var ClickTAG = decodeURIComponent(window.location.href.split('?adserver=')[1]) + "https://www.google.com"
+                </script>
+            `;
+      const expectedOutputWithSpace = `
+                <script>
+                    var clickTag  =  decodeURIComponent(window.location.href.split('?adserver=')[1]) + "https://www.google.com"
+                </script>
+            `;
+      const expectedOutputWithNoSpace = `
+                <script>
+                    var clickTag=decodeURIComponent(window.location.href.split('?adserver=')[1]) + "https://www.google.com"
+                </script>
+            `;
+
+      expect(
+        processClickthroughUrls({
+          body: `
+                <script>
+                    var clickTag = "https://www.google.com"
+                </script>
+            `,
+          type: 'newProcessor'
+        })
+      ).to.eql(expectedOutputWithVar);
+
+      expect(
+        processClickthroughUrls({
+          body: `
+                <script>
+                    var clickTag = 'https://www.google.com'
+                </script>
+            `,
+          type: 'newProcessor'
+        })
+      ).to.eql(expectedOutputWithVar);
+
+      expect(
+        processClickthroughUrls({
+          body: `
+                <script>
+                    let clickTag = "https://www.google.com"
+                </script>
+            `,
+          type: 'newProcessor'
+        })
+      ).to.eql(expectedOutputWithLet);
+
+      expect(
+        processClickthroughUrls({
+          body: `
+                <script>
+                    const clickTag = "https://www.google.com"
+                </script>
+            `,
+          type: 'newProcessor'
+        })
+      ).to.eql(expectedOutputWithConst);
+
+      expect(
+        processClickthroughUrls({
+          body: `
+                <script>
+                    var ClickTAG = "https://www.google.com"
+                </script>
+            `,
+          type: 'newProcessor'
+        })
+      ).to.eql(expectedOutputWithCase);
+
+      expect(
+        processClickthroughUrls({
+          body: `
+                <script>
+                    var clickTag  =  "https://www.google.com"
+                </script>
+            `,
+          type: 'newProcessor'
+        })
+      ).to.eql(expectedOutputWithSpace);
+
+      expect(
+        processClickthroughUrls({
+          body: `
+                <script>
+                    var clickTag="https://www.google.com"
+                </script>
+            `,
+          type: 'newProcessor'
         })
       ).to.eql(expectedOutputWithNoSpace);
     });
