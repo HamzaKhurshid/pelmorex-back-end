@@ -176,7 +176,7 @@ describe('campaign creatives zip file upload validators', () => {
     });
   });
 
-  describe('validateZipFile for coversion', () => {
+  describe('validateZipFile for conversion', () => {
     it('calls correct dependencies for conversion zip upload', async () => {
       const _getFiles = sinon.stub().returns(['testZipFile.html']);
       const _readRootHtmlFile = sinon
@@ -300,7 +300,7 @@ describe('campaign creatives zip file upload validators', () => {
     });
   });
 
-  describe('processClickthroughUrls', () => {
+  describe('processClickthroughUrls for GWD', () => {
     it('should process all clickthrough urls with a redirect macro', () => {
       const rawSingleUrlBody = `
                 <script type="text/javascript" gwd-events="handlers">
@@ -362,7 +362,7 @@ describe('campaign creatives zip file upload validators', () => {
     });
   });
 
-  describe('processClickthroughUrls', () => {
+  describe('processClickthroughUrls for conversion', () => {
     it('should process all clickthrough urls with a redirect macro', () => {
       const expectedOutputWithVar = `
                 <script>

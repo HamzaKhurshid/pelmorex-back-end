@@ -86,7 +86,7 @@ async function handler(req, res, next) {
     for (const file of filesInfo) {
       const { destinationDirectory: directoryToUpload, fileBaseName } = file;
 
-      await validateFile({ directoryToUpload, fileBaseName, exporter });
+      await validateFile({ directoryToUpload, fileBaseName, type: exporter });
 
       s3UploadResults = await uploadDirectoryToS3({
         campaignId,
@@ -174,8 +174,8 @@ const extractFiles = async filesInfo => {
   }
 };
 
-const validateFile = async ({ fileBaseName, directoryToUpload, exporter }) => {
-  await validateZipFile({ fileBaseName, directoryToUpload, type: exporter });
+const validateFile = async ({ fileBaseName, directoryToUpload, type }) => {
+  await validateZipFile({ fileBaseName, directoryToUpload, type });
 };
 
 export const validateZipFile = async ({
