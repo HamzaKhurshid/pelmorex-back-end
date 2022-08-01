@@ -274,17 +274,7 @@ const uploadDirectoryToS3 = async ({
 
     if (_.includes(filePath, '.html')) {
       Body = fs.readFileSync(filePath, 'utf8');
-
-      switch (exporter) {
-        case 'gwd':
-          Body = processGWDClickthroughUrls(Body);
-          break;
-        case 'conversion':
-          Body = processConversioClickthroughUrls(Body);
-          break;
-        default:
-          Body = processGWDClickthroughUrls(Body);
-      }
+      Body = processClickthroughUrls({ body: Body, type: exporter })
     } else {
       Body = fs.readFileSync(filePath);
     }
