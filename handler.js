@@ -362,44 +362,35 @@ const removeTempFolders = () => {
   deleteFolderRecursively(EXTRACT_DIRECTORY);
 };
 
-export const processGWDClickthroughUrls = body => {
+export const processClickthroughUrls = ({ body, type = 'gwd' }) => {
   let output = body;
+  const isGwd = type === 'gwd' || false;
+  
+  const regex = isGwd ? /.exit\([^\)]+\)/gm : /clickTag\s*=\s*["'](\S*)["']/gi;
+  const urlRegex = isGwd ? /(["']https?:\/\/[^\s]+["'],)/g : /(["']https?:\/\/[^\s]+["'])/g;
 
-  const exitEventRegex = /.exit\([^\)]+\)/gm;
-  const urlRegex = /(["']https?:\/\/[^\s]+["'],)/g;
-
-  _.each(body.match(exitEventRegex), params => {
+  _.each(body.match(regex), params => {
     const formattedParams = params.replace(urlRegex, url => {
-      const trimmedUrl = _.chain(url)
-        .trimStart(`'`)
-        .trimEnd(`',`)
-        .trimStart(`"`)
-        .trimEnd(`",`)
-        .value();
-      return `decodeURIComponent(window.location.href.split('?adserver=')[1]) + '${trimmedUrl}',`;
+      let trimmedUrl;
+      if (isGwd) {
+        trimmedUrl = _.chain(url)
+          .trimStart(`'`)
+          .trimEnd(`',`)
+          .trimStart(`"`)
+          .trimEnd(`",`)
+          .value();
+      } else {
+        trimmedUrl = _.chain(url)
+          .trim(`'`)
+          .trim(`"`)
+          .value();
+      }
+      let decodeUri = "decodeURIComponent(window.location.href.split('?adserver=')[1]) + ";
+      if (isGwd) {
+        return decodeUri + `'${trimmedUrl}',`;
+      }
+      return decodeUri + `"${trimmedUrl}"`; 
     });
-
-    output = output.replace(params, formattedParams);
-  });
-
-  return output;
-};
-
-export const processConversioClickthroughUrls = body => {
-  let output = body;
-
-  const clickTagRegex = /clickTag\s*=\s*["'](\S*)["']/gi;
-  const urlRegex = /(["']https?:\/\/[^\s]+["'])/g;
-
-  _.each(body.match(clickTagRegex), params => {
-    const formattedParams = params.replace(urlRegex, url => {
-      const trimmedUrl = _.chain(url)
-        .trim(`'`)
-        .trim(`"`)
-        .value();
-      return `decodeURIComponent(window.location.href.split('?adserver=')[1]) + "${trimmedUrl}"`;
-    });
-
     output = output.replace(params, formattedParams);
   });
 

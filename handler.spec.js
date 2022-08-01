@@ -4,8 +4,7 @@ import sinon from 'sinon';
 
 import {
   validateZipFile,
-  processGWDClickthroughUrls,
-  processConversioClickthroughUrls,
+  processClickthroughUrls
 } from './handler.js';
 
 describe('campaign creatives zip file upload validators', () => {
@@ -301,7 +300,7 @@ describe('campaign creatives zip file upload validators', () => {
     });
   });
 
-  describe('processGWDClickthroughUrls', () => {
+  describe('processClickthroughUrls', () => {
     it('should process all clickthrough urls with a redirect macro', () => {
       const rawSingleUrlBody = `
                 <script type="text/javascript" gwd-events="handlers">
@@ -358,12 +357,12 @@ describe('campaign creatives zip file upload validators', () => {
                 </script>
             `;
 
-      expect(processGWDClickthroughUrls(rawSingleUrlBody)).to.eql(processedSingleUrlBody);
-      expect(processGWDClickthroughUrls(rawMultiUrlBody)).to.eql(processedMultiUrlBody);
+      expect(processClickthroughUrls({ body: rawSingleUrlBody, type: 'gwd' })).to.eql(processedSingleUrlBody);
+      expect(processClickthroughUrls({ body: rawMultiUrlBody, type: 'gwd' })).to.eql(processedMultiUrlBody);
     });
   });
 
-  describe('processConversioClickthroughUrls', () => {
+  describe('processClickthroughUrls', () => {
     it('should process all clickthrough urls with a redirect macro', () => {
       const expectedOutputWithVar = `
                 <script>
@@ -397,59 +396,80 @@ describe('campaign creatives zip file upload validators', () => {
             `;
 
       expect(
-        processConversioClickthroughUrls(`
+        processClickthroughUrls({
+          body: `
                 <script>
                     var clickTag = "http://plancherspayless.com/fr/"
                 </script>
-            `)
+            `,
+          type: 'conversion'
+        })
       ).to.eql(expectedOutputWithVar);
 
       expect(
-        processConversioClickthroughUrls(`
+        processClickthroughUrls({
+          body: `
                 <script>
                     var clickTag = 'http://plancherspayless.com/fr/'
                 </script>
-            `)
+            `,
+          type: 'conversion'
+        })
       ).to.eql(expectedOutputWithVar);
 
       expect(
-        processConversioClickthroughUrls(`
+        processClickthroughUrls({
+          body: `
                 <script>
                     let clickTag = "http://plancherspayless.com/fr/"
                 </script>
-            `)
+            `,
+          type: 'conversion'
+        })
       ).to.eql(expectedOutputWithLet);
 
       expect(
-        processConversioClickthroughUrls(`
+        processClickthroughUrls({
+          body: `
                 <script>
                     const clickTag = "http://plancherspayless.com/fr/"
                 </script>
-            `)
+            `,
+          type: 'conversion'
+        })
       ).to.eql(expectedOutputWithConst);
 
       expect(
-        processConversioClickthroughUrls(`
+        processClickthroughUrls({
+          body: `
                 <script>
                     var ClickTAG = "http://plancherspayless.com/fr/"
                 </script>
-            `)
+            `,
+          type: 'conversion'
+        })
       ).to.eql(expectedOutputWithCase);
 
       expect(
-        processConversioClickthroughUrls(`
+        processClickthroughUrls({
+          body: `
                 <script>
                     var clickTag  =  "http://plancherspayless.com/fr/"
                 </script>
-            `)
+            `,
+          type: 'conversion'
+        })
       ).to.eql(expectedOutputWithSpace);
 
       expect(
-        processConversioClickthroughUrls(`
+        processClickthroughUrls({
+          body: `
                 <script>
                     var clickTag="http://plancherspayless.com/fr/"
                 </script>
-            `)
+            `,
+          type: 'conversion'
+        })
       ).to.eql(expectedOutputWithNoSpace);
     });
   });
