@@ -175,16 +175,7 @@ const extractFiles = async filesInfo => {
 };
 
 const validateFile = async ({ fileBaseName, directoryToUpload, exporter }) => {
-  switch (exporter) {
-    case 'gwd':
-      await validateZipFile({ fileBaseName, directoryToUpload, type: exporter });
-      break;
-    case 'conversion':
-      await validateZipFile({ fileBaseName, directoryToUpload, type: exporter });
-      break;
-    default:
-      await validateZipFile({ fileBaseName, directoryToUpload, type: exporter });
-  }
+  await validateZipFile({ fileBaseName, directoryToUpload, type: exporter });
 };
 
 export const validateZipFile = async ({
