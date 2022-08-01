@@ -3,10 +3,10 @@ import _ from 'lodash';
 import sinon from 'sinon';
 
 import {
-  validateConversionZipFile,
+  validateConversioZipFile,
   validateGWDZipFile,
   processGWDClickthroughUrls,
-  processConversionClickthroughUrls,
+  processConversioClickthroughUrls,
 } from './handler.js';
 
 describe('campaign creatives zip file upload validators', () => {
@@ -154,7 +154,7 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateConversionZipFile({
+        isValid = await validateConversioZipFile({
           fileBaseName: 'gwd-test-a (1)',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -170,14 +170,14 @@ describe('campaign creatives zip file upload validators', () => {
     });
   });
 
-  describe('validateConversionZipFile', () => {
+  describe('validateConversioZipFile', () => {
     it('calls correct dependencies for conversio zip upload', async () => {
       const _getFiles = sinon.stub().returns(['testZipFile.html']);
       const _readRootHtmlFile = sinon
         .stub()
         .returns(`<meta name="generator" content="Google Web Designer"/>`);
 
-      await validateConversionZipFile({
+      await validateConversioZipFile({
         fileBaseName: 'testZipFile',
         directoryToUpload: 'testUploadDirectory',
         _getFiles,
@@ -196,7 +196,7 @@ describe('campaign creatives zip file upload validators', () => {
                 <image src="images/test-image.png"/>
             `);
 
-      const isValid = await validateConversionZipFile({
+      const isValid = await validateConversioZipFile({
         fileBaseName: 'conversio-test-a',
         directoryToUpload: 'testUploadDirectory',
         _getFiles,
@@ -214,7 +214,7 @@ describe('campaign creatives zip file upload validators', () => {
                 <image src="images/test-image.png"/>
             `);
 
-      const isValid = await validateConversionZipFile({
+      const isValid = await validateConversioZipFile({
         fileBaseName: 'conversio-test-a (1)',
         directoryToUpload: 'testUploadDirectory',
         _getFiles,
@@ -230,7 +230,7 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateConversionZipFile({
+        isValid = await validateConversioZipFile({
           fileBaseName: 'conversio-test-a',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -249,7 +249,7 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateConversionZipFile({
+        isValid = await validateConversioZipFile({
           fileBaseName: 'conversio-test-a',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -272,7 +272,7 @@ describe('campaign creatives zip file upload validators', () => {
       let isValid;
 
       try {
-        isValid = await validateConversionZipFile({
+        isValid = await validateConversioZipFile({
           fileBaseName: 'conversio-test-a (1)',
           directoryToUpload: 'testUploadDirectory',
           _getFiles,
@@ -350,7 +350,7 @@ describe('campaign creatives zip file upload validators', () => {
     });
   });
 
-  describe('processConversionClickthroughUrls', () => {
+  describe('processConversioClickthroughUrls', () => {
     it('should process all clickthrough urls with a redirect macro', () => {
       const expectedOutputWithVar = `
                 <script>
@@ -384,7 +384,7 @@ describe('campaign creatives zip file upload validators', () => {
             `;
 
       expect(
-        processConversionClickthroughUrls(`
+        processConversioClickthroughUrls(`
                 <script>
                     var clickTag = "http://plancherspayless.com/fr/"
                 </script>
@@ -392,7 +392,7 @@ describe('campaign creatives zip file upload validators', () => {
       ).to.eql(expectedOutputWithVar);
 
       expect(
-        processConversionClickthroughUrls(`
+        processConversioClickthroughUrls(`
                 <script>
                     var clickTag = 'http://plancherspayless.com/fr/'
                 </script>
@@ -400,7 +400,7 @@ describe('campaign creatives zip file upload validators', () => {
       ).to.eql(expectedOutputWithVar);
 
       expect(
-        processConversionClickthroughUrls(`
+        processConversioClickthroughUrls(`
                 <script>
                     let clickTag = "http://plancherspayless.com/fr/"
                 </script>
@@ -408,7 +408,7 @@ describe('campaign creatives zip file upload validators', () => {
       ).to.eql(expectedOutputWithLet);
 
       expect(
-        processConversionClickthroughUrls(`
+        processConversioClickthroughUrls(`
                 <script>
                     const clickTag = "http://plancherspayless.com/fr/"
                 </script>
@@ -416,7 +416,7 @@ describe('campaign creatives zip file upload validators', () => {
       ).to.eql(expectedOutputWithConst);
 
       expect(
-        processConversionClickthroughUrls(`
+        processConversioClickthroughUrls(`
                 <script>
                     var ClickTAG = "http://plancherspayless.com/fr/"
                 </script>
@@ -424,7 +424,7 @@ describe('campaign creatives zip file upload validators', () => {
       ).to.eql(expectedOutputWithCase);
 
       expect(
-        processConversionClickthroughUrls(`
+        processConversioClickthroughUrls(`
                 <script>
                     var clickTag  =  "http://plancherspayless.com/fr/"
                 </script>
@@ -432,7 +432,7 @@ describe('campaign creatives zip file upload validators', () => {
       ).to.eql(expectedOutputWithSpace);
 
       expect(
-        processConversionClickthroughUrls(`
+        processConversioClickthroughUrls(`
                 <script>
                     var clickTag="http://plancherspayless.com/fr/"
                 </script>

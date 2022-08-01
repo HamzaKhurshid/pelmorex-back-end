@@ -2,7 +2,7 @@
   "name": "assessment",
   "version": "1.0.0",
   "description": "Pelmorex EF Assessment",
-  "main": "hander.spec.js",
+  "main": "handler.spec.js",
   "scripts": {
     "test": "mocha *.spec.*"
   },
